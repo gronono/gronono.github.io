@@ -1,7 +1,6 @@
 # Jekyll configuration
 
-name: Blog Name
-description: Software Developer
+name: Gronono
 
 # Url is currently only used only for the RSS feed in feed.xml
 url: http://gronono.github.io
@@ -10,7 +9,7 @@ url: http://gronono.github.io
 baseurl: ''
 
 author: Arnaud Brunet
-copyright: 2015 - 2018
+copyright: 2016 - 2018
 
 share:
   facebook: true
