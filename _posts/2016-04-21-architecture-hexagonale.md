@@ -3,6 +3,7 @@ layout: post
 title:  "Architecture hexagonale"
 date:   2016-04-28 18:00:00 +1100
 tags: [architecture]
+description: Une vidéo qui explique bien qu'est-ce que l'architecture hexagonale.
 comments: true
 ---
 Une vidéo qui explique bien qu'est-ce que l'architecture hexagonale :

@@ -3,6 +3,7 @@ layout: post
 title:  "Installer un serveur PXE"
 date:   2016-05-10 18:00:00 +1100
 tags: [dhcpd, linux, pxe, tftpd]
+description: Un serveur PXE permet de faire un boot d'une machine via le réseau.
 comments: true
 ---
 Un [serveur PXE](https://fr.wikipedia.org/wiki/Preboot_Execution_Environment) permet de faire un boot d'une machine via le réseau. Pour installer ce serveur, je suis parti d'une [debian installé via une netinst](https://www.debian.org/CD/netinst) sur [VirtualBox](https://www.virtualbox.org/).

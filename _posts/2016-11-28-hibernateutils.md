@@ -3,6 +3,7 @@ layout: post
 title:  "HibernateUtils"
 date:   2016-11-28 18:00:00 +1100
 tags: [java, hibernate, spring]
+description: Il y a quelques jours je suis tombé sur une classe Java nommée "HibernateUtils". Il y a quelques points qui ont attiré mon attention et que j'ai envie de partager avec vous.
 comments: true
 ---
 Il y a quelques jours je suis tombé sur une classe Java nommée "HibernateUtils". Il y a quelques points qui ont attiré mon attention et que j'ai envie de partager avec vous.
