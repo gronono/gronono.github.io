@@ -1,7 +1,7 @@
 ---
 layout: post 
 title: À Propos
-permalink: /about/
+permalink: /about
 comments: true
 ---
 Ce site est le blog personnel d'Arnaud Brunet.
