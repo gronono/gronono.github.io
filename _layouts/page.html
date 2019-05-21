@@ -1,21 +1,25 @@
-{% include header.html %}
+<!DOCTYPE html>
 
-    <div class="wrapper">
-      <div class="content">
-        <div class="container container-center">
-          <div class="row">
-            <div class="col-md-8">
-              <div class="well">
-                {{ content }}
-              </div>
-            </div>
-            <div class="col-md-4 hidden-xs">
-              {% include sidebar.html %}
-            </div>
-          </div>
+<html>
+  {% include head.html %}
+
+  <body>
+    {% include header.html %}
+    
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="col-main">
+          {{ content }}
+        </div>
+        <div class="col-second">
+          {% include sidebar.html %}
         </div>
       </div>
-      {% include footer.html %}
     </div>
+
+    {% include footer.html %}
+
+    <script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$']]}});</script>
+    <script src="{{ "/assets/easybook.js" | prepend: site.baseurl }}"></script>
   </body>
 </html>

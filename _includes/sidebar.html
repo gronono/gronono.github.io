@@ -1,20 +1,33 @@
-<div class="sidebar ">
-  <h2>Recent Posts</h2>
-  <ul>
+<div class="col-box col-box-author">
+  <img class="avatar" src="{{ "/assets/profile.jpg" | prepend: site.baseurl }}" alt="{{ site.author }}">
+  <div class="col-box-title name">
+    <a href="{{ "/about" | prepend: site.baseurl }}">{{ site.author }}</a>
+  </div>
+  <blockquote>
+    <p><q>{{ site.quote.text }}</q></p>
+    <footer>{{ site.quote.author }}</footer>
+  </blockquote>
+  <ul class="contact">
+    {% for link in site.social %}{% assign url = link[1].url %}
+    {% assign urlchk = url | split: "/" %}{% if urlchk[0] == '' and urlchk[1] != '' %}{% assign uprefix = site.baseurl %}{% else %}{% assign uprefix = ''%}{% endif %}
+    <li>
+      <a title="{{ link[1].title }}" href="{{ url | prepend: uprefix }}" target="_blank">
+        <i class="{{ link[1].icon }}"></i>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+  
+<div class="col-box">
+  <div class="col-box-title">Articles récents</div>
+  <ul class="post-list">
     {% for post in site.posts limit:5 %}
-    <li><a href="{{ post.url | relative_url }}">{{ post.title }}</a></li>
+      <li><a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></li>
     {% endfor %}
   </ul>
 </div>
 
-<div class="sidebar">
-  <h2>Tags</h2>
-  <ul class="sideBarTags">
-    {% assign tags = (site.tags | sort:0) %}
-    {% for tag in tags %}
-    <li>
-      <a href="{{ '/tag/' | append: tag[0] | relative_url }}" data-toggle="tooltip" data-placement="right" title="{{ tag[1].size }}">
-        <span>{{tag[0] }}</span></a></li>
-    {% endfor %}
-  </ul>
+<div class="col-box post-toc hide">
+  <div class="col-box-title">Sommaire</div>
 </div>

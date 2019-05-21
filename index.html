@@ -1,3 +1,45 @@
 ---
-layout: home
+layout: page
 ---
+
+<div class="home">
+    <a class="rss-link" href="{{ "/feed.xml" | prepend: site.baseurl }}">Flux RSS</a>
+    <h1 class="page-heading">Articles</h1>
+    
+    <ul class="post-list">
+        {% for post in paginator.posts %}
+        <li>
+            <h2>
+                <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+            </h2>
+            
+            <div class="post-meta">{{ post.date | date_to_long_string }}</div>
+    
+            <div class="post-excerpt">
+            {%   if post.content contains site.excerpt_separator or post.content != post.excerpt %}{{ post.excerpt }}
+            {%   else %}{{ post.content | lstrip | split: "
+    " | first }}{% endif %}
+            <p>
+                <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">Lire la suite &raquo;</a>
+            </p>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    
+    <!-- Pagination links -->
+    <div class="pagination">
+    {% if paginator.previous_page %}
+        <a href="{{ paginator.previous_page_path | prepend: site.baseurl }}" class="previous">Précédent</a>
+    {% else %}
+        <span class="previous">Précédent</span>
+    {% endif %}
+    <span class="page_number ">Page {{ paginator.page }} sur {{ paginator.total_pages }}</span>
+    {% if paginator.next_page %}
+        <a href="{{ paginator.next_page_path | prepend: site.baseurl }}" class="next">Suivant</a>
+    {% else %}
+        <span class="next ">Suivant</span>
+    {% endif %}
+    </div>
+      
+</div>
