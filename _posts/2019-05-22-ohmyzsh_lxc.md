@@ -20,7 +20,7 @@ Je propose donc de réutiliser son travail et en faire un plugin pour Oh-My-Zsh.
 cd ~/.oh-my-zsh/custom/plugins/
 git clone https://github.com/endaaman/lxd-completion-zsh.git
 cd lxd-completion-zsh
-ln -sf _lxc lxd-completion-zsh.plugin
+ln -sf _lxc lxd-completion-zsh.plugin.zsh
 ```
 
 Puis on l'active dans le fichier ~/.zshrc
