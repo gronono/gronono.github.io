@@ -1,8 +1,8 @@
 ---
 layout: post
-title:  "Configurer Apache en mode loadbalancing"
+title:  "Configurer Apache en mode load balancer"
 date: 2019-05-22 10:30:00 +1100
-tags: [apache, loadbalancing]
+tags: [apache, loadbalancer]
 comments: true
 ---
 

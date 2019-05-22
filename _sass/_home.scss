@@ -2,7 +2,7 @@
     .page-heading {
         font-size:40px;
         font-weight: normal;
-        margin: 20px;
+        margin: 0 20px;
         @include media-query($on-palm) {
             margin: 10px;
             font-size: 34px;
@@ -23,16 +23,14 @@
     }
     .post-list {
         margin: 0;
-        padding: 20px 40px;
+        padding: 0 40px;
         list-style: none;
         > li {
-            padding-bottom: 30px;
+            padding-bottom: 10px;
             border-bottom: 1px solid #CCC;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
         }
         .post-title {
-            font-size: 28px;
-            font-weight: normal;
             margin: 0;
         }
         .post-meta {
@@ -40,6 +38,10 @@
             color: #666;
             margin: 0 20px;
             margin-bottom: .5em;
+
+            .date {
+                margin-right: 1em;
+            }
         }
         .post-excerpt {
             &, * {

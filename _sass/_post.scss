@@ -1,11 +1,12 @@
 .post {
     .post-header {
     	margin: 0 100px;
-    	margin-bottom: 40px;
-    	padding: 20px;
+    	margin-bottom: 20px;
+    	padding: 0 20px;
         .post-title {
         	font-size:40px;
-        	font-weight: normal;
+            font-weight: normal;
+            line-height: normal;
         	margin: 0 -100px;
         	@include media-query($on-palm) {
         		font-size: 34px;
@@ -14,7 +15,11 @@
         .post-meta {
         	color:#999;
         	font-size:$small-font-size;
-        	margin: 0 -100px;
+            margin: 0 -100px;
+            padding-left: 20px;
+            .date {
+                margin-right: 1em;
+            }
         }
         @include media-query($on-palm) {
     		text-align:center;

@@ -2,7 +2,7 @@
 layout: post
 title:  "SQL Injection"
 date: 2016-11-30 22:00:00 +1100
-tags: [java, spring-data-jpa, sql]
+tags: [java, spring, sql]
 comments: true
 ---
 En début de semaine, j'ai eu des rappels sur les failles de sécurité liée au code et notamment le fameux [SQL Injection](https://fr.wikipedia.org/wiki/Injection_SQL).

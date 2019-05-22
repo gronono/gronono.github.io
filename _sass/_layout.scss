@@ -134,7 +134,7 @@ $hide-sidebar-screen-width: 1120px;
 	box-sizing: border-box;
 	float: right;
 	width: $col-secnod-width;
-	padding: 20px;
+	padding: 30px 20px;
 	background: #EEE;
 	z-index: 10;
 }
@@ -193,7 +193,7 @@ $hide-sidebar-screen-width: 1120px;
 		width: 135px;
 		height: 135px;
 		border-radius: 100%;
-		margin: 20px auto;
+		margin: 0 auto;
 		display: block;
 	}
 	.name {
@@ -225,7 +225,7 @@ $hide-sidebar-screen-width: 1120px;
 
 // footer
 .footer {
-	padding-bottom: 60px;
+	padding-bottom: 30px;
 	text-align:center;
 	color:#666;
 	font-size:$small-font-size;
