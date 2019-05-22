@@ -1,12 +1,3 @@
-Install: 
-* git clone https://github.com/rbenv/rbenv.git ~/.rbenv
-* Into zshrc : 
-export PATH="$HOME/.rbenv/bin":$PATH
-eval "$(rbenv init -)"
-* rbenv install 2.5.0
-* gem install bundler
-* bundle install
+[![Build Status](https://travis-ci.com/gronono/gronono.github.io.svg?branch=release)](https://travis-ci.com/gronono/gronono.github.io)
 
-Using:
-* bundle exec jekyll serve
-
+Sources de [https://gronono.fr]
