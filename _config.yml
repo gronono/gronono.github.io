@@ -41,6 +41,7 @@ excerpt_separator: <!--more-->
 plugins:
   - jekyll-paginate
   - jekyll-extlinks
+  - jekyll-minifier
 
 paginate: 5
 paginate_path: "page:num"
