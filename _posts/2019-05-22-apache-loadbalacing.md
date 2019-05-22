@@ -2,7 +2,7 @@
 layout: post
 title:  "Configurer Apache en mode loadbalancing"
 date: 2019-05-22 10:30:00 +1100
-tags: [lxc]
+tags: [apache, loadbalancing]
 comments: true
 ---
 
