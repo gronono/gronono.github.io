@@ -1,0 +1,6 @@
+// Generate tag-1 to tag-25 classes
+@for $i from 1 through 25 {
+    .tag-#{$i} {
+        font-size: 0.5 * ($i - 1) + 1em;
+    }
+}
