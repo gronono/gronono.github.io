@@ -37,6 +37,8 @@ timezone: Pacific/Noumea
 
 permalink: /:year/:month/:title
 
+lang: fr
+
 excerpt_separator: <!--more-->
 plugins:
   - jekyll-paginate

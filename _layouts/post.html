@@ -8,7 +8,7 @@ layout: page
         <h1 class="post-title">{{ page.title }}</h1>  
         <div class="post-meta">
             {% if page.date %}
-            <span class="date"><i class="far fa-calendar-alt"></i>&nbsp;{{ page.date | date_to_long_string }}</span>
+            <span class="date"><i class="far fa-calendar-alt"></i>&nbsp;{{ page.date | localize: "%d %B %Y" }}</span>
             {% endif %}
             {% assign tsize = page.tags | size %}
             {% if tsize > 0 %}
