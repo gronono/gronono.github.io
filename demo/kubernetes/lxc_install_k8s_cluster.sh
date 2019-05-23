@@ -1,8 +1,15 @@
 #!/bin/bash
 
-# Set your proxy for APT if you have one or leave it empty
-APT_PROXY="http://10.10.10.233:3142"
+# Nb of worker nodes
+NB_WORKERS=1
 
+EMAIL="arnaud.brunet@gmail.com"
+
+# Set your proxy for APT if you have one or leave it empty
+#APT_PROXY="http://10.10.10.233:3142"
+APT_PROXY="http://192.168.1.101:3142"
+# Proxies for Docker Registry
+DOCKER_PROXY="\"http://192.168.1.101:5000\", \"http://192.168.1.101:5001\""
 
 REQUIRED_MODULES="br_netfilter xt_conntrack ip_tables ip6_tables netlink_diag nf_nat overlay"
 
@@ -68,7 +75,8 @@ EOF
   "log-opts": {
     "max-size": "100m"
   },
-  "storage-driver": "overlay2"
+  "storage-driver": "overlay2",
+  "registry-mirrors": [ ${DOCKER_PROXY} ]
 }
 EOF
   lxc file push /tmp/docker-daemon.json ${node}/etc/docker/daemon.json
@@ -99,16 +107,134 @@ join_cluster() {
   lxc exec ${node} -- sh /root/k8s_join.sh
 }
 
-install_cluster_tools() {
+install_cluster_flannel() {
   local node=$1
   echo -e "${GREEN}Installing Flannel${NC}"
   lxc exec ${node} -- kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
+}
+
+install_cluster_ingress() {
+  local node=$1
   echo -e "${GREEN}Installing Ingress${NC}"
-  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/master/deployments/common/ns-and-sa.yaml
-  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/master/deployments/common/default-server-secret.yaml
-  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/master/deployments/common/nginx-config.yaml
-  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/master/deployments/rbac/rbac.yaml
-  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/master/deployments/daemon-set/nginx-ingress.yaml
+  lxc exec $[node] -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+  cat > /tmp/ingress-nginx.service.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 31080
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      nodePort: 31443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+EOF
+  lxc file push /tmp/ingress-nginx.service.yaml ${node}/root/ingress-nginx.service.yaml
+  rm -f /tmp/ingress-nginx.service.yaml
+  lxc exec ${node} -- kubectl apply -f /root/ingress-nginx.service.yaml
+  cat > /tmp/ingress-nginx.configmap.yaml << EOF
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+data:
+  use-proxy-protocol: "true"
+EOF
+  lxc file push /tmp/ingress-nginx.configmap.yaml ${node}/root/ingress-nginx.configmap.yaml
+  rm -f /tmp/ingress-nginx.configmap.yaml
+  lxc exec ${node} -- kubectl apply -f /root/ingress-nginx.configmap.yaml
+}
+
+install_cluster_dashboard() {
+  local node=$1
+  echo -e "${GRREEN}Installing Dashboard${NC}"
+  lxc exec ${node} -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended/kubernetes-dashboard.yaml
+  cat > /tmp/admin-user.yaml << EOF 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+EOF
+  lxc file push /tmp/admin-user.yaml ${node}/root/admin-user.yaml
+  rm -f /tmp/admin-user.yaml
+  lxc exec ${node} -- kubectl apply -f /root/admin-user.yaml
+  cat > /tmp/admin-role.yaml << EOF
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: kube-system
+EOF
+  lxc file push /tmp/admin-role.yaml ${node}/root/admin-role.yaml
+  rm -f /tmp/admin-role.yaml
+  lxc exec ${node} -- kubectl apply -f /root/admin-role.yaml 
+}
+
+install_cluster_certmanager() {
+  local node=$1
+  lxc exec ${note} -- kubectl create namespace cert-manager
+  lxc exec ${note} -- kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
+  lxc exec ${note} -- kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v0.8.0/cert-manager.yaml
+  cat > /tmp/letsencrypt-staging.clusterissuer.yaml << EOF
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: ${EMAIL}
+    http01: {}
+    privateKeySecretRef:
+      key: "letsencrypt-staging"
+      name: letsencrypt-staging
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+EOF
+  lxc file push /tmp/letsencrypt-staging.clusterissuer.yaml ${node}/root/letsencrypt-staging.clusterissuer.yaml
+  rm -f /tmp/letsencrypt-staging.clusterissuer.yaml
+  lxc exec ${node} -- kubectl apply -f /root/letsencrypt-staging.clusterissuer.yaml
+  cat > /tmp/letsencrypt-prod.clusterissuer.yaml << EOF
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: ${EMAIL}
+    http01: {}
+    privateKeySecretRef:
+      key: ""
+      name: letsencrypt-prod
+    server: https://acme-v02.api.letsencrypt.org/directory
+EOF
+  lxc file push /tmp/letsencrypt-prod.clusterissuer.yaml ${node}/root/letsencrypt-prod.clusterissuer.yaml
+  rm -f /tmp/letsencrypt-prod.clusterissuer.yaml
+  lxc exec ${node} -- kubectl apply -f /root/letsencrypt-prod.clusterissuer.yaml
 }
 
 check_required_modules
@@ -116,10 +242,19 @@ create_lxc_profile
 create_k8s_node kmaster
 install_tools kmaster
 init_kubernetes kmaster
-create_k8s_node kworker1
-install_tools kworker1
-join_cluster kworker1 kmaster
-install_cluster_tools kmaster
+for i in $(seq 1 ${NB_WORKERS});
+do
+  create_k8s_node kworker$i
+  install_tools kworker$i
+  join_cluster kworker$i kmaster
+done
+rm -f /tmp/k8s_join.sh
+install_cluster_flannel kmaster
+install_cluster_ingress kmaster
+install_cluster_dashboard kmaster
+install_cluster_certmanager kmaster
 
+lxc exec kmaster -- sh -c "kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')"
 echo -e "${GREEN}Success${NC}"
+echo -e "Admin token: ${adm_token}"
 
