@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nexus-ingress
+  namespace: default
+spec:
+  rules:
+  - host: nexus
+    http:
+      paths:
+      - backend:
+          serviceName: nexus
+          servicePort: 8081
+  - host: docker-proxy
+    http:
+      paths:
+      - backend:
+          serviceName: nexus
+          servicePort: 8181
+  - host: docker-private
+    http:
+      paths:
+      - backend:
+          serviceName: nexus
+          servicePort: 8281

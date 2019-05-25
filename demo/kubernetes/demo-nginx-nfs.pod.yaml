@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: demo-nginx-nfs
+  name: demo-nginx-pod
+spec:
+  volumes:
+    - name: www
+      persistentVolumeClaim:
+        claimName: nfs-pvc
+  containers:
+    - image: nginx
+      name: nginx
+      volumeMounts:
+      - name: www
+        mountPath: /usr/share/nginx/html

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-nginx-nfs
+spec:
+  selector:
+    app: demo-nginx-nfs
+  ports:
+  - protocol: TCP
+    port: 80

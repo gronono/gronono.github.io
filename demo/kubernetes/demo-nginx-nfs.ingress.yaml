@@ -1,0 +1,13 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: demo-nginx-nfs-ingress
+  namespace: default
+spec:
+  rules:
+  - host: demo-nginx-nfs
+    http:
+      paths:
+      - backend:
+          serviceName: demo-nginx-nfs
+          servicePort: 80

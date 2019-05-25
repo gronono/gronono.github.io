@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nexus
+  name: nexus-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus
+  template:
+    metadata:
+      labels:
+        app: nexus
+    spec:
+      containers:
+      - image: sonatype/nexus3:latest
+        name: nexus
+        volumeMounts:
+        - name: data
+          mountPath: /nexus-data
+      volumes:
+      - name: data
+        nfs:
+          server: 10.223.181.52
+          path: /srv/nfs/nexus/
+  

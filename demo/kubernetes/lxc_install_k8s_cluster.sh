@@ -1,23 +1,23 @@
 #!/bin/bash
 
 # Nb of worker nodes
-NB_WORKERS=1
-# Email address for Let's encrypt issuers
-EMAIL="arnaud.brunet@gmail.com"
+NB_WORKERS=2
 
 # Set your proxy for APT if you have one or leave it empty
 #APT_PROXY="http://10.10.10.233:3142"
 APT_PROXY="http://$(ip route get 1 | head -n 1 | cut -d' ' -f7):3142"
 # Proxies for Docker Registry
-#DOCKER_PROXY="\"http://192.168.1.101:5000\", \"http://192.168.1.101:5001\""
+DOCKER_PROXY="\"http://192.168.1.101:5000\", \"http://192.168.1.101:5001\""
 
-REQUIRED_MODULES="br_netfilter xt_conntrack ip_tables ip6_tables netlink_diag nf_nat overlay"
+
+# Ingress Service Ports
+HTTP_PORT=30082
+HTTPS_PORT=31817
+
+REQUIRED_MODULES="br_netfilter xt_conntrack ip_tables ip6_tables netlink_diag nf_nat overlay rbd"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
-
-HTTP_PORT=30082
-HTTPS_PORT=31817
 
 set -e
 
@@ -60,7 +60,7 @@ Acquire::http { Proxy "${APT_PROXY}"; }
 EOF
   lxc file push /tmp/apt_proxy "${name}"/etc/apt/apt.conf.d/proxy
   fi
-  lxc exec "${name}" -- apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common iputils-ping wget nfs-common
+  lxc exec "${name}" -- apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common iputils-ping wget nfs-common lvm2
 }
 
 create_k8s_node() {
@@ -128,8 +128,6 @@ install_cluster_ingress() {
   local node=$1
   echo -e "${GREEN}Installing Ingress${NC}"
   lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
-#  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/cloud-generic.yaml
-#  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
   local gatewayIP
   gatewayIP=$(lxc exec gateway -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
   cat > /tmp/ingress-nginx.service.yaml << EOF
@@ -220,47 +218,6 @@ EOF
   lxc file push /tmp/kube-admin.ingress.yaml "${node}"/root/kube-admin.ingress.yaml
   rm -f /tmp/kube-admin.ingress.yaml
   lxc exec "${node}" -- kubectl apply -f /root/kube-admin.ingress.yaml
-}
-
-install_cluster_certmanager() {
-  local node=$1
-  lxc exec "${node}" -- kubectl create namespace cert-manager
-  lxc exec "${node}" -- kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
-  lxc exec "${node}" -- kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v0.8.0/cert-manager.yaml
-  cat > /tmp/letsencrypt-staging.clusterissuer.yaml << EOF
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    email: ${EMAIL}
-    http01: {}
-    privateKeySecretRef:
-      key: "letsencrypt-staging"
-      name: letsencrypt-staging
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-EOF
-  lxc file push /tmp/letsencrypt-staging.clusterissuer.yaml "${node}"/root/letsencrypt-staging.clusterissuer.yaml
-  rm -f /tmp/letsencrypt-staging.clusterissuer.yaml
-  lxc exec "${node}" -- kubectl apply -f /root/letsencrypt-staging.clusterissuer.yaml
-  cat > /tmp/letsencrypt-prod.clusterissuer.yaml << EOF
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-spec:
-  acme:
-    email: ${EMAIL}
-    http01: {}
-    privateKeySecretRef:
-      key: "letsencrypt-prod"
-      name: letsencrypt-prod
-    server: https://acme-v02.api.letsencrypt.org/directory
-EOF
-  lxc file push /tmp/letsencrypt-prod.clusterissuer.yaml "${node}"/root/letsencrypt-prod.clusterissuer.yaml
-  rm -f /tmp/letsencrypt-prod.clusterissuer.yaml
-  lxc exec "${node}" -- kubectl apply -f /root/letsencrypt-prod.clusterissuer.yaml
 }
 
 create_gateway_node() {
@@ -356,72 +313,6 @@ generate_haproxy_directive() {
   echo -n "${directive}"
 }
 
-install_cluster_metallb() {
-  local node=$1
-  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.7.3/manifests/metallb.yaml
-  local gatewayIP
-  gatewayIP=$(lxc exec gateway -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-  cat > /tmp/metallb.config.yaml << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      addresses:
-      - ${EXTERNAL_IP}-${EXTERNAL_IP}
-EOF
-  lxc file push /tmp/metallb.config.yaml "${node}"/root/metallb.config.yaml
-  rm -f /tmp/metallb.config.yaml
-  lxc exec "${node}" -- kubectl apply -f /root/metallb.config.yaml
-}
-
-install_cluster_nfs() {
-  local node=$1
-  local gatewayIP
-  gatewayIP=$(lxc exec gateway -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-  cat > /tmp/nfs.pv.yaml << EOF
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: nfs-pv
-  labels:
-    type: local
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 50Gi
-  accessModes:
-    - ReadWriteMany
-  nfs:
-    server: ${gatewayIP}
-    path: "/srv/nfs"
-EOF
-  lxc file push /tmp/nfs.pv.yaml "${node}"/root/nfs.pv.yaml
-  rm -f /tmp/nfs.pv.yaml
-  lxc exec "${node}" -- kubectl apply -f /root/nfs.pv.yaml
-  cat > /tmp/nfs.pvc.yaml << EOF
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: nfs-pvc
-spec:
-  storageClassName: manual
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 50Gi
-EOF
-  lxc file push /tmp/nfs.pvc.yaml "${node}"/root/nfs.pvc.yaml
-  rm -f /tmp/nfs.pvc.yaml
-  lxc exec "${node}" -- kubectl apply -f /root/nfs.pvc.yaml
-}
-
 waiting_for_pods() {
   echo -e "${GREEN}Waiting pods${NC}"
   while ( lxc exec "$1" -- kubectl get pod -A | grep -e ContainerCreating -e Init -e Pending > /dev/null)
@@ -445,12 +336,9 @@ rm -f /tmp/k8s_join.sh
 create_gateway_node gateway
 install_cluster_flannel kmaster
 waiting_for_pods kmaster
-#install_cluster_metallb kmaster
 install_cluster_ingress kmaster
 waiting_for_pods kmaster
-# install_cluster_certmanager kmaster
 install_cluster_dashboard kmaster
-install_cluster_nfs kmaster
 waiting_for_pods kmaster
 
 lxc exec kmaster -- sh -c "kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')"
