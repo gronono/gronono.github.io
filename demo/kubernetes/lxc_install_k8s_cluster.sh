@@ -13,6 +13,8 @@ DOCKER_PROXY="http://$(ip route get 1 | head -n 1 | cut -d' ' -f7):3128"
 HTTP_PORT=30082
 HTTPS_PORT=31817
 
+LXC_NETWORK="$(lxc network list | grep OUI | cut -d'|' -f 2)"
+
 REQUIRED_MODULES="br_netfilter xt_conntrack ip_tables ip6_tables netlink_diag nf_nat overlay rbd"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -46,9 +48,8 @@ create_container() {
   echo -e "${GREEN}Creating container ${name}${NC}"
   lxc init images:debian/stretch "${name}"
   lxc profile apply "${name}" "k8s"
-  # TODO Dynamic network name
-  lxc network attach lxd-bridge "${name}" eth0 eth0
-  lxc config device set "${name}" eth0 ipv4.address ${ip}
+  lxc network attach "${LXC_NETWORK}" "${name}" eth0 eth0
+  lxc config device set "${name}" eth0 ipv4.address "${ip}"
   lxc start "${name}"
   lxc exec "${name}" -- sh -c "while ! (ip addr | grep inet | grep eth0 2>/dev/null); do sleep 1; done"
   if [ ! -z "$APT_PROXY" ]
