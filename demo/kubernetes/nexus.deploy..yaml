@@ -23,6 +23,6 @@ spec:
       volumes:
       - name: data
         nfs:
-          server: 10.223.181.52
+          server: 10.223.181.199
           path: /srv/nfs/nexus/
   

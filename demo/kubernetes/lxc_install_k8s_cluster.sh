@@ -1,14 +1,13 @@
 #!/bin/bash
 
 # Nb of worker nodes
-NB_WORKERS=2
+NB_WORKERS=1
 
 # Set your proxy for APT if you have one or leave it empty
-#APT_PROXY="http://10.10.10.233:3142"
 APT_PROXY="http://$(ip route get 1 | head -n 1 | cut -d' ' -f7):3142"
-# Proxies for Docker Registry
-DOCKER_PROXY="\"http://192.168.1.101:5000\", \"http://192.168.1.101:5001\""
 
+# Proxy for Docker.
+DOCKER_PROXY="http://$(ip route get 1 | head -n 1 | cut -d' ' -f7):3128"
 
 # Ingress Service Ports
 HTTP_PORT=30082
@@ -39,18 +38,17 @@ create_lxc_profile() {
   echo -en 'lxc.apparmor.profile=unconfined\nlxc.cap.drop= \nlxc.cgroup.devices.allow=a\nlxc.mount.auto=proc:rw sys:rw' | lxc profile set k8s raw.lxc -
   lxc profile set k8s security.privileged "true"
   lxc profile set k8s security.nesting "true"
-  
 }
 
 create_container() {
   local name=$1
-  local profil=$2
+  local ip=$2
   echo -e "${GREEN}Creating container ${name}${NC}"
   lxc init images:debian/stretch "${name}"
-  if [ ! -z "$profil" ]
-  then
-    lxc profile apply "${name}" "${profil}"
-  fi
+  lxc profile apply "${name}" "k8s"
+  # TODO Dynamic network name
+  lxc network attach lxd-bridge "${name}" eth0 eth0
+  lxc config device set "${name}" eth0 ipv4.address ${ip}
   lxc start "${name}"
   lxc exec "${name}" -- sh -c "while ! (ip addr | grep inet | grep eth0 2>/dev/null); do sleep 1; done"
   if [ ! -z "$APT_PROXY" ]
@@ -60,18 +58,13 @@ Acquire::http { Proxy "${APT_PROXY}"; }
 EOF
   lxc file push /tmp/apt_proxy "${name}"/etc/apt/apt.conf.d/proxy
   fi
-  lxc exec "${name}" -- apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common iputils-ping wget nfs-common lvm2
+  lxc exec "${name}" -- apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common iputils-ping wget nfs-common lvm2 dnsutils
 }
 
-create_k8s_node() {
-  local node=$1
-  create_container "${node}" k8s
-  lxc file push /boot/config-"$(uname -r)" "${node}"/boot/config-"$(uname -r)"
-}
-
-install_tools() {
+install_k8s_tools() {
   local node=$1
   echo -e "${GREEN}Installing docker & kubernetes on ${node}${NC}"
+  lxc file push /boot/config-"$(uname -r)" "${node}"/boot/config-"$(uname -r)"
   lxc exec "${node}" -- sh -c "curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -"
   lxc exec "${node}" -- sh -c "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"
   lxc exec "${node}" -- add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian stretch stable"
@@ -85,13 +78,26 @@ install_tools() {
   "log-opts": {
     "max-size": "100m"
   },
-  "storage-driver": "overlay2",
-  "registry-mirrors": [ ${DOCKER_PROXY} ]
+  "storage-driver": "overlay2"
 }
 EOF
   lxc file push /tmp/docker-daemon.json "${node}"/etc/docker/daemon.json
   rm -rf /tmp/docker-daemon.json
   lxc exec "${node}" -- mkdir -p /etc/systemd/system/docker.service.d
+  if [ ! -z "$DOCKER_PROXY" ]
+  then
+    cat > /tmp/docker-proxy << EOF
+[Service]
+Environment="HTTP_PROXY=${DOCKER_PROXY}"
+Environment="HTTPS_PROXY=${DOCKER_PROXY}"
+EOF
+    lxc file push /tmp/docker-proxy "${node}"/etc/systemd/system/docker.service.d/http-proxy.conf
+    rm -rf /tmp/docker-proxy
+    curl "${DOCKER_PROXY}"/ca.crt > /tmp/ca.crt
+    lxc file push /tmp/ca.crt "${node}"/usr/share/ca-certificates/docker_registry_proxy.crt
+    lxc exec "${node}" -- sh -c "echo 'docker_registry_proxy.crt' >> /etc/ca-certificates.conf"
+    lxc exec "${node}" -- update-ca-certificates --fresh
+  fi
   lxc exec "${node}" -- sh -c "echo 'Environment="KUBELET_EXTRA_ARGS=--fail-swap-on=false"' >> /etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
   lxc exec "${node}" -- systemctl daemon-reload
   lxc exec "${node}" -- systemctl restart docker
@@ -121,13 +127,13 @@ join_cluster() {
 install_cluster_flannel() {
   local node=$1
   echo -e "${GREEN}Installing Flannel${NC}"
-  lxc exec "${node}" -- kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
+  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.11.0/Documentation/kube-flannel.yml
 }
 
 install_cluster_ingress() {
   local node=$1
   echo -e "${GREEN}Installing Ingress${NC}"
-  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.24.1/deploy/mandatory.yaml
   local gatewayIP
   gatewayIP=$(lxc exec gateway -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
   cat > /tmp/ingress-nginx.service.yaml << EOF
@@ -135,7 +141,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ingress-nginx
-  namespace: ingress-nginx
+  namespace: kube-system
   labels:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx
@@ -158,6 +164,7 @@ spec:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx
 EOF
+  sed -i 's/namespace: ingress-nginx/namespace: kube-system/g' /tmp/ingress-nginx.service.yaml 
   lxc file push /tmp/ingress-nginx.service.yaml "${node}"/root/ingress-nginx.service.yaml
   rm -f /tmp/ingress-nginx.service.yaml
   lxc exec "${node}" -- kubectl apply -f /root/ingress-nginx.service.yaml
@@ -220,9 +227,9 @@ EOF
   lxc exec "${node}" -- kubectl apply -f /root/kube-admin.ingress.yaml
 }
 
-create_gateway_node() {
+install_haproxy() {
+  echo -e "${GREEN}Installing HAProxy${NC}"
   local name=$1
-  create_container "${name}" "k8s"
   lxc exec "${name}" -- apt install -y haproxy
   cat > /tmp/haproxy.cfg << EOF
 global
@@ -287,20 +294,24 @@ EOF
   lxc file push /tmp/haproxy.cfg "${name}"/etc/haproxy/haproxy.cfg
   rm -f /tmp/haproxy.cfg
   lxc exec "${name}" -- systemctl restart haproxy.service
+}
+
+install_nfs_server() {
+  echo -e "${GREEN}Installing NFS Server${NC}"
+  local name=$1
   lxc exec "${name}" -- apt install -y nfs-kernel-server
   lxc exec "${name}" -- mkdir -p /srv/nfs
   lxc exec "${name}" -- chown nobody:nogroup /srv/nfs
   local network
-  network=$(lxc exec gateway -- ip addr sh | grep eth0 | grep inet | cut -d' ' -f 6)
+  network=$(lxc exec "${name}" -- ip addr sh | grep eth0 | grep inet | cut -d' ' -f 6)
   cat > /tmp/exports << EOF
 /srv/nfs ${network}(rw,sync,no_root_squash,no_subtree_check)
 EOF
   lxc file push /tmp/exports "${name}"/etc/exports
   rm -f /tmp/exports
-  lxc exec "${name}" -- systemctl restart nfs-server
-  
-}
+  lxc exec "${name}" -- systemctl restart nfs-server  
 
+}
 generate_haproxy_directive() {
   local port=$1
   local directive
@@ -321,23 +332,36 @@ waiting_for_pods() {
   done
 }
 
+# Requierements
 check_required_modules
+# Containers
 create_lxc_profile
-create_k8s_node kmaster
-install_tools kmaster
-init_kubernetes kmaster
+create_container "gateway" "10.223.181.199"
+create_container "kmaster" "10.223.181.200"
 for i in $(seq 1 ${NB_WORKERS})
 do
-  create_k8s_node "kworker$i"
-  install_tools "kworker$i"
+  create_container "kworker$i" "10.223.181.20$i"
+done
+# Master
+install_k8s_tools kmaster
+init_kubernetes kmaster
+# Worker
+for i in $(seq 1 ${NB_WORKERS})
+do
+  install_k8s_tools "kworker$i"
   join_cluster "kworker$i" kmaster
 done
 rm -f /tmp/k8s_join.sh
-create_gateway_node gateway
+# Gateway
+install_haproxy gateway
+install_nfs_server gateway
+# Flannel
 install_cluster_flannel kmaster
 waiting_for_pods kmaster
+# Ingress
 install_cluster_ingress kmaster
 waiting_for_pods kmaster
+# Dashboard
 install_cluster_dashboard kmaster
 waiting_for_pods kmaster
 

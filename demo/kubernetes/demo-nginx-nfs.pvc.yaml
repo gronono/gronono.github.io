@@ -11,5 +11,5 @@ spec:
   accessModes:
     - ReadWriteMany
   nfs:
-    server: ${gatewayIP}
+    server: 10.223.181.199
     path: "/srv/nfs/demo"

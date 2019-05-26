@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: demo-nginx-nfs
+  name: demo-nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-nginx-nfs
+  template:
+    metadata:
+      labels:
+        app: demo-nginx-nfs
+    spec:
+      volumes:
+        - name: www
+          nfs:
+            server: 10.223.181.174
+            path: /srv/nfs/demo
+      containers:
+        - image: nginx
+          name: nginx
+          volumeMounts:
+          - name: www
+            mountPath: /usr/share/nginx/html

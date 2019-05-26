@@ -17,19 +17,22 @@ spec:
       volumes:
       - name: config
         nfs:
-          server: 10.223.181.52
+          server: 10.223.181.199
           path: /srv/nfs/gitlab/config
       - name: logs
         nfs:
-          server: 10.223.181.52
+          server: 10.223.181.199
           path: /srv/nfs/gitlab/logs
       - name: data
         nfs:
-          server: 10.223.181.52
+          server: 10.223.181.199
           path: /srv/nfs/gitlab/data
       containers:
       - image: gitlab/gitlab-ce:latest
         name: gitlab
+        env:
+        - name: GITLAB_OMNIBUS_CONFIG
+          value: "external_url 'http://gitlab/'"
         volumeMounts:
         - name: config
           mountPath: /etc/gitlab
