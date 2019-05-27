@@ -13,7 +13,7 @@ DOCKER_PROXY="http://$(ip route get 1 | head -n 1 | cut -d' ' -f7):3128"
 HTTP_PORT=30082
 HTTPS_PORT=31817
 
-LXC_NETWORK="$(lxc network list | grep OUI | cut -d'|' -f 2)"
+LXC_NETWORK="$(lxc network list | grep -E "(OUI|YES)" | cut -d'|' -f 2)"
 
 REQUIRED_MODULES="br_netfilter xt_conntrack ip_tables ip6_tables netlink_diag nf_nat overlay rbd"
 GREEN='\033[0;32m'
@@ -48,7 +48,7 @@ create_container() {
   echo -e "${GREEN}Creating container ${name}${NC}"
   lxc init images:debian/stretch "${name}"
   lxc profile apply "${name}" "k8s"
-  lxc network attach "${LXC_NETWORK}" "${name}" eth0 eth0
+  lxc network attach ${LXC_NETWORK} "${name}" eth0 eth0
   lxc config device set "${name}" eth0 ipv4.address "${ip}"
   lxc start "${name}"
   lxc exec "${name}" -- sh -c "while ! (ip addr | grep inet | grep eth0 2>/dev/null); do sleep 1; done"
@@ -134,7 +134,12 @@ install_cluster_flannel() {
 install_cluster_ingress() {
   local node=$1
   echo -e "${GREEN}Installing Ingress${NC}"
-  lxc exec "${node}" -- kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.24.1/deploy/mandatory.yaml
+  wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.24.1/deploy/mandatory.yaml -O /tmp/ingress.install.yaml
+  sed -i 's/namespace: ingress-nginx/namespace: kube-system/g' /tmp/ingress.install.yaml
+  lxc file push /tmp/ingress.install.yaml "${node}"/root/ingress.install.yaml
+  rm -f /tmp/ingress.install.yaml
+  lxc exec "${node}" -- kubectl apply -f /root/ingress.install.yaml
+  lxc exec "${node}" -- kubectl delete namespace ingress-nginx
   local gatewayIP
   gatewayIP=$(lxc exec gateway -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
   cat > /tmp/ingress-nginx.service.yaml << EOF
@@ -165,7 +170,6 @@ spec:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx
 EOF
-  sed -i 's/namespace: ingress-nginx/namespace: kube-system/g' /tmp/ingress-nginx.service.yaml 
   lxc file push /tmp/ingress-nginx.service.yaml "${node}"/root/ingress-nginx.service.yaml
   rm -f /tmp/ingress-nginx.service.yaml
   lxc exec "${node}" -- kubectl apply -f /root/ingress-nginx.service.yaml
@@ -320,7 +324,7 @@ generate_haproxy_directive() {
   do
     local ip
     ip=$(lxc exec "kworker$i" -- ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-    directive="${directive}  server node1 ${ip}:${port}\n"
+    directive="${directive}  server kworker$i ${ip}:${port}\n"
   done
   echo -n "${directive}"
 }
@@ -336,7 +340,7 @@ waiting_for_pods() {
 # Requierements
 check_required_modules
 # Containers
-create_lxc_profile
+#create_lxc_profile
 create_container "gateway" "10.223.181.199"
 create_container "kmaster" "10.223.181.200"
 for i in $(seq 1 ${NB_WORKERS})

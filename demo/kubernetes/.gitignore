@@ -1,2 +1,6 @@
 /docker_mirror_cache/
 /docker_mirror_certs/
+/test/.git
+/test/target/
+/test/tmp
+/kube-prometheus/

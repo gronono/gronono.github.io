@@ -1,0 +1,13 @@
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: hello-kube
+spec:
+  selector:
+    app: hello-kube
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP

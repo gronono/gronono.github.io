@@ -17,7 +17,7 @@ spec:
       volumes:
         - name: www
           nfs:
-            server: 10.223.181.174
+            server: 10.223.181.199
             path: /srv/nfs/demo
       containers:
         - image: nginx
@@ -25,3 +25,28 @@ spec:
           volumeMounts:
           - name: www
             mountPath: /usr/share/nginx/html
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: demo-nginx-nfs-ingress
+spec:
+  rules:
+  - host: demo-nginx-nfs
+    http:
+      paths:
+      - backend:
+          serviceName: demo-nginx-nfs
+          servicePort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-nginx-nfs
+spec:
+  selector:
+    app: demo-nginx-nfs
+  ports:
+  - protocol: TCP
+    port: 80
+
