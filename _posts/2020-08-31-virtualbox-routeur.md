@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Créer une infra virtuelle avec VirtualBox - Partie 1 : le routeur Internet"
-date: 2019-05-23 19:30 +1100
+date: 2020-08-31 22:50 +1100
 tags: [debian, linux, virtualbox, routeur, réseau]
 comments: true
 ---
