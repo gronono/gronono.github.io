@@ -1,0 +1,10 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: hello-kube
+  labels:
+    app: hello-kube
+spec:
+  containers:
+    - name: hello-kube
+      image:  mendhak/http-https-echo

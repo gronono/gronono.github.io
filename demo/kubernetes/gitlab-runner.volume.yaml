@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: gitlabrunner-nfs-volume
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 50Gi
+  mountOptions:
+  - nolock
+  nfs:
+    path: /srv/nfs/cache/maven
+    server: 10.223.181.199
+  persistentVolumeReclaimPolicy: Recycle
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitlabrunner-claim
+  namespace: gitlab-managed-apps
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: gitlabrunner-nfs-volume
+status:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 50Gi

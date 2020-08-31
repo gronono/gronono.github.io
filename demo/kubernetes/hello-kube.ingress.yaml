@@ -1,0 +1,12 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: hello-kube-ingress
+spec:
+  rules:
+  - host: hello-kube
+    http:
+      paths:
+      - backend:
+          serviceName: hello-kube
+          servicePort: 80

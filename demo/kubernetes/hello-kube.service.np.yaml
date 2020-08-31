@@ -1,0 +1,14 @@
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: hello-kube
+spec:
+  selector:
+    app: hello-kube
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      nodePort: 31000
+      protocol: TCP

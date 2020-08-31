@@ -1,0 +1,83 @@
+apiVersion: v1
+data:
+  check-live: |
+    #!/bin/bash
+    if /usr/bin/pgrep -f .*register-the-runner; then
+      exit 0
+    elif /usr/bin/pgrep gitlab.*runner; then
+      exit 0
+    else
+      exit 1
+    fi
+  config.toml: |
+    concurrent = 4
+    check_interval = 3
+    log_level = "info"
+    listen_address = '[::]:9252'
+    [[runners]]
+      [runners.kubernetes]
+        executor = "kubernetes"
+        [[runners.kubernetes.volumes.pvc]]
+          mount_path = "/cache/maven.repository"
+          name = "gitlabrunner-claim"
+  configure: |
+    set -e
+    cp /init-secrets/* /secrets
+  entrypoint: |
+    #!/bin/bash
+    set -e
+    mkdir -p /home/gitlab-runner/.gitlab-runner/
+    cp /scripts/config.toml /home/gitlab-runner/.gitlab-runner/
+
+    # Register the runner
+    if [[ -f /secrets/accesskey && -f /secrets/secretkey ]]; then
+      export CACHE_S3_ACCESS_KEY=$(cat /secrets/accesskey)
+      export CACHE_S3_SECRET_KEY=$(cat /secrets/secretkey)
+    fi
+
+    if [[ -f /secrets/gcs-applicaton-credentials-file ]]; then
+      export GOOGLE_APPLICATION_CREDENTIALS="/secrets/gcs-applicaton-credentials-file"
+    else
+      if [[ -f /secrets/gcs-access-id && -f /secrets/gcs-private-key ]]; then
+        export CACHE_GCS_ACCESS_ID=$(cat /secrets/gcs-access-id)
+        # echo -e used to make private key multiline (in google json auth key private key is oneline with \n)
+        export CACHE_GCS_PRIVATE_KEY=$(echo -e $(cat /secrets/gcs-private-key))
+      fi
+    fi
+
+    if [[ -f /secrets/runner-registration-token ]]; then
+      export REGISTRATION_TOKEN=$(cat /secrets/runner-registration-token)
+    fi
+
+    if [[ -f /secrets/runner-token ]]; then
+      export CI_SERVER_TOKEN=$(cat /secrets/runner-token)
+    fi
+
+    if ! sh /scripts/register-the-runner; then
+      exit 1
+    fi
+
+    # Start the runner
+    /entrypoint run --user=gitlab-runner \
+      --working-directory=/home/gitlab-runner
+  register-the-runner: "#!/bin/bash\nMAX_REGISTER_ATTEMPTS=30\n\nfor i in $(seq 1
+    \"${MAX_REGISTER_ATTEMPTS}\"); do\n  echo \"Registration attempt ${i} of ${MAX_REGISTER_ATTEMPTS}\"\n
+    \ /entrypoint register \\\n    --non-interactive\n\n  retval=$?\n\n  if [ ${retval}
+    = 0 ]; then\n    break\n  elif [ ${i} = ${MAX_REGISTER_ATTEMPTS} ]; then\n    exit
+    1\n  fi\n\n  sleep 5 \ndone\n\nexit 0\n"
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"check-live":"#!/bin/bash\nif /usr/bin/pgrep -f .*register-the-runner; then\n  exit 0\nelif /usr/bin/pgrep gitlab.*runner; then\n  exit 0\nelse\n  exit 1\nfi\n","config.toml":"concurrent = 4\ncheck_interval = 3\nlog_level = \"info\"\nlisten_address = '[::]:9252'\n[[runners.kubernetes.volumes.pvc]]\n  mount_path = \"/cache/maven.repository\"\n  name = \"gitlabrunner-claim\"\n","configure":"set -e\ncp /init-secrets/* /secrets\n","entrypoint":"#!/bin/bash\nset -e\nmkdir -p /home/gitlab-runner/.gitlab-runner/\ncp /scripts/config.toml /home/gitlab-runner/.gitlab-runner/\n\n# Register the runner\nif [[ -f /secrets/accesskey \u0026\u0026 -f /secrets/secretkey ]]; then\n  export CACHE_S3_ACCESS_KEY=$(cat /secrets/accesskey)\n  export CACHE_S3_SECRET_KEY=$(cat /secrets/secretkey)\nfi\n\nif [[ -f /secrets/gcs-applicaton-credentials-file ]]; then\n  export GOOGLE_APPLICATION_CREDENTIALS=\"/secrets/gcs-applicaton-credentials-file\"\nelse\n  if [[ -f /secrets/gcs-access-id \u0026\u0026 -f /secrets/gcs-private-key ]]; then\n    export CACHE_GCS_ACCESS_ID=$(cat /secrets/gcs-access-id)\n    # echo -e used to make private key multiline (in google json auth key private key is oneline with \\n)\n    export CACHE_GCS_PRIVATE_KEY=$(echo -e $(cat /secrets/gcs-private-key))\n  fi\nfi\n\nif [[ -f /secrets/runner-registration-token ]]; then\n  export REGISTRATION_TOKEN=$(cat /secrets/runner-registration-token)\nfi\n\nif [[ -f /secrets/runner-token ]]; then\n  export CI_SERVER_TOKEN=$(cat /secrets/runner-token)\nfi\n\nif ! sh /scripts/register-the-runner; then\n  exit 1\nfi\n\n# Start the runner\n/entrypoint run --user=gitlab-runner \\\n  --working-directory=/home/gitlab-runner\n","register-the-runner":"#!/bin/bash\nMAX_REGISTER_ATTEMPTS=30\n\nfor i in $(seq 1 \"${MAX_REGISTER_ATTEMPTS}\"); do\n  echo \"Registration attempt ${i} of ${MAX_REGISTER_ATTEMPTS}\"\n  /entrypoint register \\\n    --non-interactive\n\n  retval=$?\n\n  if [ ${retval} = 0 ]; then\n    break\n  elif [ ${i} = ${MAX_REGISTER_ATTEMPTS} ]; then\n    exit 1\n  fi\n\n  sleep 5 \ndone\n\nexit 0\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":"2019-05-26T07:31:14Z","labels":{"app":"runner-gitlab-runner","chart":"gitlab-runner-0.4.1","heritage":"Tiller","release":"runner"},"name":"runner-gitlab-runner","namespace":"gitlab-managed-apps","resourceVersion":"3274","selfLink":"/api/v1/namespaces/gitlab-managed-apps/configmaps/runner-gitlab-runner","uid":"3e36833c-7f88-11e9-ac12-02428ee9a2e9"}}
+  creationTimestamp: "2019-05-26T07:31:14Z"
+  labels:
+    app: runner-gitlab-runner
+    chart: gitlab-runner-0.4.1
+    heritage: Tiller
+    release: runner
+  name: runner-gitlab-runner
+  namespace: gitlab-managed-apps
+  resourceVersion: "10747"
+  selfLink: /api/v1/namespaces/gitlab-managed-apps/configmaps/runner-gitlab-runner
+  uid: 3e36833c-7f88-11e9-ac12-02428ee9a2e9

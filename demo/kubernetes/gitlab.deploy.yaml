@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab
+  name: gitlab-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      volumes:
+      - name: config
+        nfs:
+          server: 10.223.181.199
+          path: /srv/nfs/gitlab/config
+      - name: logs
+        nfs:
+          server: 10.223.181.199
+          path: /srv/nfs/gitlab/logs
+      - name: data
+        nfs:
+          server: 10.223.181.199
+          path: /srv/nfs/gitlab/data
+      containers:
+      - image: gitlab/gitlab-ce:latest
+        name: gitlab
+        env:
+        - name: GITLAB_OMNIBUS_CONFIG
+          value: "external_url 'http://gitlab/'"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/gitlab
+        - name: logs
+          mountPath: /var/log/gitlab
+        - name: data
+          mountPath: /var/opt/gitlab
