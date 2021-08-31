@@ -10,10 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
-      - uses: actions/setup-node@v2
-        with:
-          node-version: 'lts/*'
-
+      - name: Install xmllint
+        run: sudo apt-get install nodejs
+        
       - name: Cache gems
         uses: actions/cache@v1
         with:
