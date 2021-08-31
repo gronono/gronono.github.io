@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/gronono/gronono.github.io.svg?branch=release)](https://travis-ci.org/gronono/gronono.github.io)
+[![Deploy](https://github.com/gronono/gronono.github.io/actions/workflows/deploy.yml/badge.svg?branch=release)](https://github.com/gronono/gronono.github.io/actions/workflows/deploy.yml)
 
 Sources de https://gronono.fr
 
