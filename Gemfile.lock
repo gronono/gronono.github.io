@@ -87,6 +87,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  execjs
   jekyll
   jekyll-extlinks
   jekyll-minifier

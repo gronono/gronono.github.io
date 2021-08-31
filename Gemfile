@@ -6,4 +6,5 @@ gem "jekyll-extlinks"
 gem "jekyll-minifier"
 
 # Fix Could not find a JavaScript runtime
-gem "therubyracer"
+gem 'execjs'
+gem 'therubyracer', :platforms => :ruby
